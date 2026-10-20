@@ -37,54 +37,105 @@ export const CalendarModal: React.FC<Props> = ({
   const activeVisualPrompt = preset?.visual_prompt || visualPrompt || '';
 
   const handleGenerate = async () => {
+    // 1. Ambil API Key dari memori browser
+    const apiKey = localStorage.getItem('vtp_gemini_key');
+    if (!apiKey) {
+      onToast('API Key Gemini tidak ditemukan! Silakan tutup ini dan isi di menu Pengaturan (ikon kunci).');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/generate-calendar', {
+      // 2. Siapkan Prompt untuk Gemini (dipindahkan dari server.ts)
+      const calendarPrompt = `You are an elite YouTube Content Director & Growth Strategist.
+Create a comprehensive, production-ready ${daysCount}-Day YouTube Content Calendar Plan based on this Content DNA and Visual Concept.
+Every single day must be optimized for YouTube Algorithm performance (Browse, Suggested & YouTube Search SEO):
+
+CONTENT DNA CONTEXT:
+- Visual Style: ${activeDna?.visualStyle || "Cinematic Visuals"}
+- Target YouTube Niche: ${activeDna?.targetNiche || "Digital Creator"}
+- Target Country: ${activeCountry}
+- Target Native Language: ${activeLanguage}
+- Base Master Visual Prompt: ${activeVisualPrompt || ""}
+${extraFocus ? `- Extra Creator Focus: ${extraFocus}` : ""}
+
+Plan exactly ${daysCount} days of strategic YouTube content.
+Balance the content pillars strategically across the ${daysCount} days.
+
+For EACH day (Day 1 to Day ${daysCount}), provide:
+- day: (number)
+- dayTitle: Short theme punchline
+- pillar: Content Pillar name
+- title_en: YouTube-optimized Title in English
+- title_target: YouTube-optimized Title in ${activeLanguage}
+- hook_en: Opening 3-second retention hook in English
+- hook_target: Opening hook in ${activeLanguage}
+- visualPrompt: Specific visual generation prompt for that day
+- i2vPrompt: Image-to-Video motion prompt (Static tripod, seamless looping, 60fps)
+- format: YouTube Format ("Shorts (9:16)" or "Video (16:9)")
+- cta: YouTube-native call to action
+- status: "todo"
+
+RESPOND STRICTLY IN VALID JSON:
+{
+  "calendar": [
+    {
+      "day": 1,
+      "dayTitle": "...",
+      "pillar": "...",
+      "title_en": "...",
+      "title_target": "...",
+      "hook_en": "...",
+      "hook_target": "...",
+      "visualPrompt": "...",
+      "i2vPrompt": "Static locked tripod camera, zero camera movement, stable horizon. Perfect seamless looping video, fluid cyclical micro-movement ... 60fps.",
+      "format": "...",
+      "cta": "...",
+      "status": "todo"
+    }
+  ]
+}`;
+
+      // 3. Panggil langsung Gemini API dari Frontend
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contentDna: activeDna,
-          visualPrompt: activeVisualPrompt,
-          targetCountry: activeCountry,
-          targetLanguage: activeLanguage,
-          days: daysCount,
-          extraFocus,
-        }),
+          contents: [{ parts: [{ text: calendarPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menghasilkan kalender');
+      const rawData = await response.json();
+      if (!response.ok) {
+        throw new Error(rawData.error?.message || 'Gagal terhubung ke Gemini API.');
+      }
 
+      const generatedTextRaw = rawData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!generatedTextRaw) throw new Error('Respons AI kosong.');
+
+      const data = JSON.parse(generatedTextRaw.trim());
       const rawDays = data.calendar || [];
 
-      // Save to database
-      const saveRes = await fetch('/api/calendars', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `${preset?.name || activeDna?.visualStyle || 'Konten'} - Plan ${daysCount} Hari`,
-          preset_id: preset?.id || '',
-          preset_name: preset?.name || '',
-          days_count: daysCount,
-          target_country: activeCountry,
-          target_language: activeLanguage,
-          days: rawDays,
-        }),
-      });
-
-      const savedData = await saveRes.json();
+      // 4. Simpan ke database lokal (localStorage)
+      const id = `cal_${Date.now()}`;
+      const name = `${preset?.name || activeDna?.visualStyle || 'Konten'} - Plan ${daysCount} Hari`;
+      const createdAt = new Date().toISOString();
 
       const calendarObj: ContentCalendar = {
-        id: savedData.id || `cal_${Date.now()}`,
-        name: savedData.name || `Plan ${daysCount} Hari`,
+        id,
+        name,
         preset_id: preset?.id,
         preset_name: preset?.name,
         days_count: daysCount,
         target_country: activeCountry,
         target_language: activeLanguage,
-        created_at: new Date().toISOString(),
+        created_at: createdAt,
         days: rawDays,
       };
+
+      const localCalendars = JSON.parse(localStorage.getItem('vtp_calendars') || '[]');
+      localStorage.setItem('vtp_calendars', JSON.stringify([calendarObj, ...localCalendars]));
 
       onCalendarGenerated(calendarObj);
       onToast(`Berhasil membuat kalender konten ${daysCount} hari!`);
@@ -111,7 +162,7 @@ export const CalendarModal: React.FC<Props> = ({
                 Kalender Konten YouTube AI (7 / 30 Hari)
               </h3>
               <p className="text-[11px] text-gray-400 font-medium">
-                Roadmap YouTube Shorts & Long-form dengan judul SEO, hook 3 detik & prompt I2V
+                Berdiri Mandiri &bull; Data Aman Tersimpan di Perangkat
               </p>
             </div>
           </div>
@@ -206,7 +257,7 @@ export const CalendarModal: React.FC<Props> = ({
               value={extraFocus}
               onChange={(e) => setExtraFocus(e.target.value)}
               className="vtp-input w-full h-10 text-xs"
-              placeholder="Contoh: Fokus AI visual storytelling, misteri sejarah, atau tips prompt Midjourney..."
+              placeholder="Contoh: Fokus AI visual storytelling, misteri sejarah, atau tips prompt..."
             />
           </div>
 
@@ -215,7 +266,7 @@ export const CalendarModal: React.FC<Props> = ({
               <span>🔴</span> Yang Dihasilkan Khusus YouTube Setiap Hari:
             </span>
             <ul className="list-disc list-inside space-y-0.5 text-gray-400">
-              <li>Judul SEO YouTube 50-60 karakter (Opsi Viral Hook & Search Intent)</li>
+              <li>Judul SEO YouTube 50-60 karakter (Viral Hook & Search Intent)</li>
               <li>Skrip hook 3 detik pertama pencegah swipe-away</li>
               <li>Prompt visual Midjourney / Flux untuk Thumbnail & Footage</li>
               <li>Prompt animasi I2V (Static locked tripod & perfect seamless loop)</li>
