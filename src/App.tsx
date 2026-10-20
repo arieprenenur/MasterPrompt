@@ -321,21 +321,21 @@ RESPOND STRICTLY IN VALID JSON using this exact structure:
 }`;
 
       // Call Google Gemini directly from Browser
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt },
-                { inline_data: { mime_type: mimeType, data: base64Data } }
-              ]
-            }
-          ],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: systemPrompt },
+          { inline_data: { mime_type: mimeType, data: base64Data } }
+        ]
+      }
+    ],
+    generationConfig: { responseMimeType: "application/json" }
+  })
+});
 
       const rawData = await response.json();
       if (!response.ok) {
