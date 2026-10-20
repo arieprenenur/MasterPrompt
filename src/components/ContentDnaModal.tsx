@@ -54,9 +54,14 @@ export const ContentDnaModal: React.FC<Props> = ({
 
     setIsSaving(true);
     try {
-      const payload = {
-        name,
-        description,
+      // Bikin ID unik dan timestamp secara lokal (Client-Side)
+      const id = 'dna_' + Date.now().toString();
+      const createdAt = new Date().toISOString();
+
+      const savedPreset: ContentDnaPreset = {
+        id: id,
+        name: name,
+        description: description,
         thumbnail: thumbnail || '',
         target_country: targetCountry,
         target_language: targetLanguage,
@@ -64,41 +69,15 @@ export const ContentDnaModal: React.FC<Props> = ({
         i2v_prompt: i2vPrompt || '',
         content_dna: contentDna,
         bilingual_metadata: bilingualMetadata,
+        created_at: createdAt,
       };
 
-      const res = await fetch('/api/presets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menyimpan preset');
-
-      const savedPreset: ContentDnaPreset = {
-        id: data.id,
-        name: data.name,
-        description,
-        thumbnail,
-        target_country: targetCountry,
-        target_language: targetLanguage,
-        visual_prompt: visualPrompt,
-        i2v_prompt: i2vPrompt,
-        content_dna: contentDna,
-        bilingual_metadata: bilingualMetadata,
-        created_at: data.created_at,
-      };
-
-      // Also save to localStorage backup
-      try {
-        const local = JSON.parse(localStorage.getItem('vtp_dna_presets') || '[]');
-        localStorage.setItem('vtp_dna_presets', JSON.stringify([savedPreset, ...local]));
-      } catch (e) {
-        console.warn('Local storage fallback error', e);
-      }
+      // Simpan langsung ke localStorage browser (Tanpa Backend)
+      const local = JSON.parse(localStorage.getItem('vtp_dna_presets') || '[]');
+      localStorage.setItem('vtp_dna_presets', JSON.stringify([savedPreset, ...local]));
 
       onSaved(savedPreset);
-      onToast('Preset Content DNA berhasil disimpan!');
+      onToast('Preset Content DNA berhasil disimpan ke perangkat!');
 
       if (openCalendar) {
         onOpenCalendarGenerator(savedPreset);
@@ -126,7 +105,7 @@ export const ContentDnaModal: React.FC<Props> = ({
                 Simpan Sebagai Content DNA / Preset
               </h3>
               <p className="text-[11px] text-gray-400 font-medium">
-                Kunci formula visual & metadata ini untuk generate kalender konten berulang
+                Penyimpanan lokal 100% aman di perangkat Anda
               </p>
             </div>
           </div>
@@ -242,7 +221,7 @@ export const ContentDnaModal: React.FC<Props> = ({
             disabled={isSaving}
             className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all flex items-center gap-2 border border-white/10 disabled:opacity-50"
           >
-            <Save className="w-4 h-4" /> Simpan DNA Saja
+            <Save className="w-4 h-4" /> Simpan DNA Lokal
           </button>
 
           <button
