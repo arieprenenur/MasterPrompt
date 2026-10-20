@@ -669,4 +669,8 @@ async function startServer() {
   });
 }
 
-startServer();
+// Menonaktifkan startServer agar tidak berbenturan dengan sistem Serverless Vercel
+// startServer();
+
+// Mengekspor app agar Vercel dapat menjalankan routing API
+export default app;
